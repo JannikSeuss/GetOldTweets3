@@ -174,84 +174,85 @@ class TweetManager:
         URIs, and discard all other markup.
         """
         
-        # Chech if value is passed by the html parameter - otherwise set empty string to prevent error
-        if html is None:
-            html = ''
+        try:
         
-        
-        # Step 0, compile some convenient regular expressions
-        imgre = re.compile("^(.*?)(<img.*?/>)(.*)$")
-        charre = re.compile("^&#x([^;]+);(.*)$")
-        htmlre = re.compile("^(.*?)(<.*?>)(.*)$")
-        are = re.compile("^(.*?)(<a href=[^>]+>(.*?)</a>)(.*)$")
+            # Step 0, compile some convenient regular expressions
+            imgre = re.compile("^(.*?)(<img.*?/>)(.*)$")
+            charre = re.compile("^&#x([^;]+);(.*)$")
+            htmlre = re.compile("^(.*?)(<.*?>)(.*)$")
+            are = re.compile("^(.*?)(<a href=[^>]+>(.*?)</a>)(.*)$")
 
-        # Step 1, prepare a single-line string for re convenience
-        puc = chr(0xE001)
-        html = html.replace("\n", puc)
+            # Step 1, prepare a single-line string for re convenience
+            puc = chr(0xE001)
+            html = html.replace("\n", puc)
 
-        # Step 2, find images that represent emoji, replace them with the
-        # Unicode codepoint of the emoji.
-        text = ""
-        match = imgre.match(html)
-        while match:
-            text += match.group(1)
-            img = match.group(2)
-            html = match.group(3)
-
-            attr = TweetManager.parse_attributes(img)
-            if emoji == "unicode":
-                chars = attr["alt"]
-                match = charre.match(chars)
-                while match:
-                    text += chr(int(match.group(1),16))
-                    chars = match.group(2)
-                    match = charre.match(chars)
-            elif emoji == "named":
-                text += "Emoji[" + attr['title'] + "]"
-            else:
-                text += " "
-
+            # Step 2, find images that represent emoji, replace them with the
+            # Unicode codepoint of the emoji.
+            text = ""
             match = imgre.match(html)
-        text = text + html
+            while match:
+                text += match.group(1)
+                img = match.group(2)
+                html = match.group(3)
 
-        # Step 3, find links and replace them with the actual URL
-        html = text
-        text = ""
-        match = are.match(html)
-        while match:
-            text += match.group(1)
-            link = match.group(2)
-            linktext = match.group(3)
-            html = match.group(4)
-
-            attr = TweetManager.parse_attributes(link)
-            try:   
-                if "u-hidden" in attr["class"]:
-                    pass
-                elif "data-expanded-url" in attr \
-                and "twitter-timeline-link" in attr["class"]:
-                    text += attr['data-expanded-url']
+                attr = TweetManager.parse_attributes(img)
+                if emoji == "unicode":
+                    chars = attr["alt"]
+                    match = charre.match(chars)
+                    while match:
+                        text += chr(int(match.group(1),16))
+                        chars = match.group(2)
+                        match = charre.match(chars)
+                elif emoji == "named":
+                    text += "Emoji[" + attr['title'] + "]"
                 else:
-                    text += link
-            except:
-                pass
+                    text += " "
 
+                match = imgre.match(html)
+            text = text + html
+
+            # Step 3, find links and replace them with the actual URL
+            html = text
+            text = ""
             match = are.match(html)
-        text = text + html
+            while match:
+                text += match.group(1)
+                link = match.group(2)
+                linktext = match.group(3)
+                html = match.group(4)
 
-        # Step 4, discard any other markup that happens to be in the tweet.
-        # This makes textify() behave like tweetPQ.text()
-        html = text
-        text = ""
-        match = htmlre.match(html)
-        while match:
-            text += match.group(1)
-            html = match.group(3)
+                attr = TweetManager.parse_attributes(link)
+                try:   
+                    if "u-hidden" in attr["class"]:
+                        pass
+                    elif "data-expanded-url" in attr \
+                    and "twitter-timeline-link" in attr["class"]:
+                        text += attr['data-expanded-url']
+                    else:
+                        text += link
+                except:
+                    pass
+
+                match = are.match(html)
+            text = text + html
+
+            # Step 4, discard any other markup that happens to be in the tweet.
+            # This makes textify() behave like tweetPQ.text()
+            html = text
+            text = ""
             match = htmlre.match(html)
-        text = text + html
+            while match:
+                text += match.group(1)
+                html = match.group(3)
+                match = htmlre.match(html)
+            text = text + html
 
-        # Step 5, make the string multi-line again.
-        text = text.replace(puc, "\n")
+            # Step 5, make the string multi-line again.
+            text = text.replace(puc, "\n")
+            
+        except:
+            print("Unexpected error:", sys.exc_info()[0])
+            text = ''
         return text
 
     @staticmethod
